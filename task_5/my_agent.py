@@ -12,11 +12,11 @@ def encode_observation(observation: dict) -> torch.Tensor:
 
     tensor_3d[:, :, 0] = torch.where(map_tensor == -1, torch.tensor(0), torch.tensor(1))  # is it visible
 
-    tensor_3d[:, :, 1] = torch.remainder(map_tensor, 2)  # is it a planet
-    tensor_3d[:, :, 2] = torch.remainder(torch.div(map_tensor, 2), 2)  # is it an asteroid
-    tensor_3d[:, :, 3] = torch.remainder(torch.div(map_tensor, 4), 2)  # is it an IMF
-    tensor_3d[:, :, 4] = torch.remainder(torch.div(map_tensor, 64), 2)  # is it mine
-    tensor_3d[:, :, 5] = torch.remainder(torch.div(map_tensor, 128), 2)  # is it the opponents
+    tensor_3d[:, :, 1] = torch.bitwise_and(map_tensor, 1)  # is it a planet
+    tensor_3d[:, :, 2] = torch.bitwise_and(map_tensor, 2)  # is it an asteroid
+    tensor_3d[:, :, 3] = torch.bitwise_and(map_tensor, 4)  # is it an IMF
+    tensor_3d[:, :, 4] = torch.bitwise_and(map_tensor, 64)  # is it mine
+    tensor_3d[:, :, 5] = torch.bitwise_and(map_tensor, 128)  # is it the opponents
 
     for ship in observation["allied_ships"]:
         ship_id, x, y, health, fire_cooldown, move_cooldown = ship
@@ -92,6 +92,8 @@ class Agent:
             # TODO: insert input into the DQN
 
             # TODO: decode output from the DQN and add the correct action to the list
+
+        print(encoded_obs)
 
         return {
             "ships_actions": ship_actions,
