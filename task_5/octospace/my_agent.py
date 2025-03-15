@@ -1,10 +1,9 @@
-# Skeleton for Agent class
-
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import numpy as np
+from replay_memory import Replay_Memory
+from random import randint
 
+from DQN import DQN
 
 def encode_observation(observation: dict) -> torch.Tensor:
 
@@ -37,25 +36,6 @@ def encode_observation(observation: dict) -> torch.Tensor:
     return tensor_3d
 
 
-class ConvNet(nn.Module):
-    def __init__(self):
-        super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(11, 16, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.fc1 = nn.Linear(32 * 25 * 25, 120)  # Adjusted input size
-        self.fc2 = nn.Linear(120, 80)
-
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = self.pool(x)
-        x = F.relu(self.conv2(x))
-        x = self.pool(x)
-        x = x.view(-1, 32 * 25 * 25)  # Adjusted flatten size
-        x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        return x
-
 
 def decode_action(action: torch.Tensor, ship_id: int) -> list:
     probabilities = F.softmax(action, dim=0)
@@ -66,7 +46,12 @@ def decode_action(action: torch.Tensor, ship_id: int) -> list:
         return [ship_id, 0, predicted_class, 3]
 
 
+
 class Agent:
+    def __init__(self, side: int):
+        self.memory = Replay_Memory()
+        self.side = side
+        self.model = DQN()
 
     def get_action(self, obs: dict) -> dict:
         """
@@ -115,22 +100,32 @@ class Agent:
         ship_actions = []
 
         encoded_obs = encode_observation(obs)
-
-        for ship in obs["allied_ships"]:
-            ship_id, x, y, health, fire_cooldown, move_cooldown = ship
-            encoded_obs[y, x, 10] = 1
-
-            # TODO: insert input into the DQN
-            # output_tensor =
-
-            # TODO: decode output from the DQN and add the correct action to the list
-            action = decode_action(output_tensor, ship_id)
-            ship_actions.append(action)
+        model_output = self.model.choose_action(encoded_obs)
+        ship_actions = self.parse_model_output(obs["allied_ships"],model_output)
 
         return {
             "ships_actions": ship_actions,
             "construction": 10
         }
+    
+    def parse_model_output(self, ships, model_output):
+        ship_idx = model_output // 8
+        move_idx = model_output % 8 
+        move_type = 0
+
+        if move_idx >= 4:
+            move_type = 1
+            move_idx -= 4
+
+        if(ship_idx > len(ships)):
+            ship_idx = randint(0, len(ships)-1)
+
+        print(ship_idx)
+
+        return ships[ship_idx], move_type, move_idx
+
+    def store(self, state, action, reward, next_state):
+        self.model.store_action(state, action, reward, next_state)
 
     def load(self, abs_path: str):
         """
@@ -140,7 +135,10 @@ class Agent:
         :param abs_path:
         :return:
         """
-        pass
+        state_dictionary = torch.load(f"{abs_path}_{self.side}")
+        self.model = DQN()
+        self.model.load_state_dict(state_dictionary)
+
 
     def eval(self):
         """
@@ -148,7 +146,7 @@ class Agent:
 
         :return:
         """
-        pass
+        self.model.eval()
 
     def to(self, device):
         """
@@ -158,4 +156,4 @@ class Agent:
         :param device:
         :return:
         """
-        pass
+        self.model.to(device)

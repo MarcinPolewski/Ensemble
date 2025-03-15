@@ -1,21 +1,43 @@
 
+import octospace
+import pygame
+
+
 import torch.nn as nn
 from torch.optim import Adam
 import torch
 import gymnasium as gym
 import numpy as np
-import random
 import os
+from my_agent import Agent
 
 import octospace
 import pygame
-import my_agent
+
+
+BATCH_SIZE = 128
+GAMMA = 0.99
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 1000
+TAU = 0.005
+
+
 
 def load_player_for_training(side: int):
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    DEVICE = "cpu"
+    if torch.cuda.is_available():
+        DEVICE = "cuda"
+    elif torch.mps.is_available():
+        DEVICE = "mps"
 
-    agent = my_agent(side)
-    # agent.load(os.path.abspath(f"agents/player"))
+    agent = Agent(side)
+    try:
+        agent.load(os.path.abspath(f"agents/model"))
+    except FileNotFoundError:
+        print("did not load model from memory!!!")
+        pass
+    
     agent.to(DEVICE)
 
     return agent
@@ -43,15 +65,15 @@ def main():
             action_1 = player_left.get_action(state["player_1"]) 
             action_2 = player_right.get_action(state["player_2"]) 
 
-            next_state, reward, terminated, truncated, info = env.step(
+            next_state, reward, terminated, truncated, _ = env.step(
             {
                 "player_1": action_1,
                 "player_2": action_2
             })
             isFinished = truncated or terminated
 
-            player_left.store(state, action_1, reward["player_1"], next_state)
-            player_right.store(state, action_2, reward["player_2"], next_state)
+            player_left.store(state, action_1,next_state,  reward["player_1"])
+            player_right.store(state, action_2, next_state, reward["player_2"])
 
             if isFinished:
                 player_left.learn()
