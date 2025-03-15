@@ -6,11 +6,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+
+
 def encode_observation(observation: dict) -> torch.Tensor:
 
-    tensor_3d = torch.zeros((100, 100, 11), dtype=torch.float32)
+    tensor_3d = torch.zeros((100, 100, 11), dtype=torch.float32).to(DEVICE)
 
-    map_tensor = torch.tensor(observation["map"], dtype=torch.float32).to(torch.int)
+    map_tensor = torch.tensor(observation["map"], dtype=torch.float32).to(DEVICE).to(torch.int)
 
     tensor_3d[:, :, 0] = torch.where(map_tensor == -1, torch.tensor(0), torch.tensor(1))  # is it visible
 
@@ -44,7 +47,7 @@ class ConvNet(nn.Module):
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.fc1 = nn.Linear(32 * 25 * 25, 120)  # Adjusted input size
-        self.fc2 = nn.Linear(120, 80)
+        self.fc2 = nn.Linear(120, 8)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -67,6 +70,9 @@ def decode_action(action: torch.Tensor, ship_id: int) -> list:
 
 
 class Agent:
+
+    def __init__(self):
+        self.model = ConvNet().to(DEVICE)
 
     def get_action(self, obs: dict) -> dict:
         """
@@ -114,7 +120,7 @@ class Agent:
 
         ship_actions = []
 
-        encoded_obs = encode_observation(obs)
+        encoded_obs = encode_observation(obs).to(DEVICE)
 
         for ship in obs["allied_ships"]:
             ship_id, x, y, health, fire_cooldown, move_cooldown = ship
@@ -158,4 +164,5 @@ class Agent:
         :param device:
         :return:
         """
-        pass
+        self.device = device
+        self.model.to(device)
