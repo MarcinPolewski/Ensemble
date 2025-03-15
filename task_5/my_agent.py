@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def encode_observation(observation: dict) -> torch.Tensor:
 
     tensor_3d = torch.zeros((100, 100, 11), dtype=torch.float32)
@@ -36,8 +37,6 @@ def encode_observation(observation: dict) -> torch.Tensor:
     return tensor_3d
 
 
-
-
 class ConvNet(nn.Module):
     def __init__(self):
         super(ConvNet, self).__init__()
@@ -56,6 +55,16 @@ class ConvNet(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+
+def decode_action(action: torch.Tensor, ship_id: int) -> list:
+    probabilities = F.softmax(action, dim=0)
+    predicted_class = torch.argmax(probabilities)
+    if predicted_class > 3:
+        return [ship_id, 1, predicted_class - 4, 0]
+    else:
+        return [ship_id, 0, predicted_class, 3]
+
 
 class Agent:
 
@@ -112,8 +121,11 @@ class Agent:
             encoded_obs[y, x, 10] = 1
 
             # TODO: insert input into the DQN
+            # output_tensor =
 
             # TODO: decode output from the DQN and add the correct action to the list
+            action = decode_action(output_tensor, ship_id)
+            ship_actions.append(action)
 
         return {
             "ships_actions": ship_actions,
