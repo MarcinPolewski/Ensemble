@@ -93,8 +93,6 @@ class Agent:
 
             # TODO: decode output from the DQN and add the correct action to the list
 
-        print(encoded_obs)
-
         return {
             "ships_actions": ship_actions,
             "construction": 10
