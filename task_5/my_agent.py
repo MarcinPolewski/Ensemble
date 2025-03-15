@@ -46,33 +46,41 @@ class ConvNet(nn.Module):
         self.conv1 = nn.Conv2d(11, 16, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
-        self.fc1 = nn.Linear(32 * 25 * 25, 120)  # Adjusted input size
+        self.fc1 = nn.Linear(25, 120)  # Adjusted input size
         self.fc2 = nn.Linear(120, 8)
 
     def forward(self, x):
+        x = x.permute(0, 3, 1, 2)
         x = F.relu(self.conv1(x))
         x = self.pool(x)
         x = F.relu(self.conv2(x))
         x = self.pool(x)
-        x = x.view(-1, 32 * 25 * 25)  # Adjusted flatten size
+        x.reshape(x.size(0), -1)
+        # x = x.view(-1, 32 * 25 * 25)  # Adjusted flatten size
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
 
 
 def decode_action(action: torch.Tensor, ship_id: int) -> list:
+    print(f"shape: {action.shape}")
     probabilities = F.softmax(action, dim=0)
     predicted_class = torch.argmax(probabilities)
+    predicted_class = predicted_class.item()
+    print(predicted_class)
     if predicted_class > 3:
-        return [ship_id, 1, predicted_class - 4, 0]
+        return [ship_id, 1, predicted_class - 4, 3]
     else:
         return [ship_id, 0, predicted_class, 3]
 
 
 class Agent:
 
-    def __init__(self):
-        self.model = ConvNet().to(DEVICE)
+    def __init__(self, side=0):
+        self.device = DEVICE
+        self.side = side
+        self.leftModel = ConvNet().to(DEVICE)
+        self.rightModel = ConvNet().to(DEVICE)
 
     def get_action(self, obs: dict) -> dict:
         """
@@ -120,14 +128,20 @@ class Agent:
 
         ship_actions = []
 
-        encoded_obs = encode_observation(obs).to(DEVICE)
+        encoded_obs = encode_observation(obs).unsqueeze(0).to(DEVICE)
 
         for ship in obs["allied_ships"]:
             ship_id, x, y, health, fire_cooldown, move_cooldown = ship
-            encoded_obs[y, x, 10] = 1
+            encoded_obs[0, y, x, 10] = 1
 
-            # TODO: insert input into the DQN
-            # output_tensor =
+            print(encoded_obs.shape)
+
+            if self.side == 0:
+                output_tensor = self.leftModel(encoded_obs)
+            else:
+                output_tensor = self.rightModel(encoded_obs)
+
+            output_tensor = output_tensor.squeeze(1)
 
             # TODO: decode output from the DQN and add the correct action to the list
             action = decode_action(output_tensor, ship_id)
@@ -165,4 +179,5 @@ class Agent:
         :return:
         """
         self.device = device
-        self.model.to(device)
+        self.leftModel.to(device)
+        self.rightModel.to(device)
