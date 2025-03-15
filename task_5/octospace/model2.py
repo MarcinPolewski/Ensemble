@@ -8,6 +8,11 @@ import random
 import octospace
 import pygame
 
+DEVICE = "cpu"
+if torch.cuda.is_available():
+    DEVICE = "cuda"
+elif torch.mps.is_available():
+    DEVICE = "mps"
 
 # Neural network
 class DQN(nn.Module):
@@ -24,6 +29,9 @@ class DQN(nn.Module):
         x = nn.functional.relu(self.fc1(x))
         x = nn.functional.relu(self.fc2(x))
         x = nn.functional.relu(self.fc3(x))
+        x = nn.functional.relu(self.fc4(x))
+        x = nn.functional.relu(self.fc5(x))
+        x = self.fc6(x)
         return x
 
 
@@ -42,8 +50,8 @@ gamma = 0.99
 input_size = 151
 output_size = 80
 batch_size = 64
-policy_net = DQN(input_size, output_size)
-target_net = DQN(input_size, output_size)
+policy_net = DQN(input_size, output_size).to(DEVICE)
+target_net = DQN(input_size, output_size).to(DEVICE)
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
@@ -79,7 +87,7 @@ def encode_obs(p_obs):
     resources = resources * resources_mask
 
     encoded = np.concatenate((allied_ships, enemy_ships, planets_occupation, resources))
-    return encoded
+    return torch.tensor(encoded, device=DEVICE, dtype=torch.float32)
 
 
 def encode_action(p_action):
@@ -87,7 +95,7 @@ def encode_action(p_action):
     ships_actions = p_action["ships_actions"][:10]
     for idx, actions in enumerate(ships_actions):
         encoded[idx * 8 + 4 * actions[1] + actions[2]] = 1
-    return encoded
+    return torch.tensor(encoded, device=DEVICE, dtype=torch.float32)
 
 
 def decode_action(p_action, indexes):
@@ -123,7 +131,7 @@ def select_action(state, epsilon):
     if random.random() < epsilon:
         return decode_action(np.random.randint(0, 8, 10), allies_indexes)
     else:
-        encoded_state = torch.FloatTensor(encode_obs(state))
+        encoded_state = encode_obs(state) # torch.FloatTensor(encode_obs(state))
         q_values = policy_net(torch.tensor(encoded_state))
         return decode_action(torch.argmax(q_values.view(-1, 8), dim=1), allies_indexes)
 
@@ -135,11 +143,11 @@ def optimize():
 
     batch = random.sample(memory, batch_size)
     states, actions, rewards, next_states, dones = zip(*batch)
-    actions = torch.tensor(actions, dtype=torch.int64)
-    states = torch.tensor(states, dtype=torch.float32)
-    rewards = torch.tensor(rewards, dtype=torch.float32)
-    next_states = torch.tensor(next_states, dtype=torch.float32)
-    dones = torch.tensor(dones, dtype=torch.float32)
+    states = torch.stack([b[0].to(DEVICE) for b in batch])
+    actions = torch.stack([b[1].to(DEVICE) for b in batch])
+    rewards = torch.tensor([b[2] for b in batch], device=DEVICE)
+    next_states = torch.stack([b[3].to(DEVICE) for b in batch])
+    dones = torch.tensor([b[4] for b in batch], device=DEVICE, dtype=torch.float32)
 
     q_values = (policy_net(states) * actions).sum(dim=1)
 
