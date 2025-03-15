@@ -38,22 +38,20 @@ def main():
 
         t=0
         while(t < max_iterations_per_episode and not isFinished):
-            action_1 = player.get_action(obs["player_1"]) 
-            action_2 = player.get_action(obs["player_2"]) 
+            action_1 = player.get_action(state["player_1"]) 
+            action_2 = player.get_action(state["player_2"]) 
 
-            obs, reward, terminated, truncated, info = env.step(
+            next_state, reward, terminated, truncated, info = env.step(
             {
                 "player_1": action_1,
                 "player_2": action_2
-            }
+            })
             isFinished = truncated or terminated
 
-            agent.update(reward, next_state) # dodać to co jeszcze potrzebne
+            player.update(reward, next_state) # dodać to co jeszcze potrzebne
             
             t+=1
             state = next_state 
-
-        )
 
 
 
