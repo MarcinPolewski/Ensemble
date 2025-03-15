@@ -8,15 +8,15 @@ def encode_observation(observation: dict) -> torch.Tensor:
 
     tensor_3d = torch.zeros((100, 100, 11), dtype=torch.float32)
 
-    map_tensor = torch.tensor(observation["map"], dtype=torch.float32)
+    map_tensor = torch.tensor(observation["map"], dtype=torch.float32).to(torch.int)
 
     tensor_3d[:, :, 0] = torch.where(map_tensor == -1, torch.tensor(0), torch.tensor(1))  # is it visible
 
-    tensor_3d[:, :, 1] = torch.bitwise_and(map_tensor, 1)  # is it a planet
-    tensor_3d[:, :, 2] = torch.bitwise_and(map_tensor, 2)  # is it an asteroid
-    tensor_3d[:, :, 3] = torch.bitwise_and(map_tensor, 4)  # is it an IMF
-    tensor_3d[:, :, 4] = torch.bitwise_and(map_tensor, 64)  # is it mine
-    tensor_3d[:, :, 5] = torch.bitwise_and(map_tensor, 128)  # is it the opponents
+    tensor_3d[:, :, 1] = torch.where(torch.bitwise_and(map_tensor, 1) != 0, torch.tensor(1), torch.tensor(0))  # is it a planet
+    tensor_3d[:, :, 2] = torch.where(torch.bitwise_and(map_tensor, 2) != 0, torch.tensor(1), torch.tensor(0))  # is it an asteroid
+    tensor_3d[:, :, 3] = torch.where(torch.bitwise_and(map_tensor, 4) != 0, torch.tensor(1), torch.tensor(0))  # is it an IMF
+    tensor_3d[:, :, 4] = torch.where(torch.bitwise_and(map_tensor, 64) != 0, torch.tensor(1), torch.tensor(0))  # is it mine
+    tensor_3d[:, :, 5] = torch.where(torch.bitwise_and(map_tensor, 128) != 0, torch.tensor(1), torch.tensor(0))  # is it the opponents
 
     for ship in observation["allied_ships"]:
         ship_id, x, y, health, fire_cooldown, move_cooldown = ship
