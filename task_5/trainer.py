@@ -31,6 +31,7 @@ def main():
     max_episode_count = 1000
     max_iterations_per_episode = 1000
     terminated = False
+    
     for _ in range(max_episode_count):
         
         state,_ = env.reset()
@@ -48,7 +49,11 @@ def main():
             })
             isFinished = truncated or terminated
 
-            player.update(reward, next_state) # dodać to co jeszcze potrzebne
+            player.store(1,state, action_1, reward["player_1"], next_state)
+            player.store(2,state, action_2, reward["player_2"], next_state)
+
+            if isFinished:
+                player.learn()
             
             t+=1
             state = next_state 
