@@ -63,11 +63,9 @@ class ConvNet(nn.Module):
 
 
 def decode_action(action: torch.Tensor, ship_id: int) -> list:
-    print(f"shape: {action.shape}")
     probabilities = F.softmax(action, dim=0)
     predicted_class = torch.argmax(probabilities)
     predicted_class = predicted_class.item()
-    print(predicted_class)
     if predicted_class > 3:
         return [ship_id, 1, predicted_class - 4, 3]
     else:
@@ -133,8 +131,6 @@ class Agent:
         for ship in obs["allied_ships"]:
             ship_id, x, y, health, fire_cooldown, move_cooldown = ship
             encoded_obs[0, y, x, 10] = 1
-
-            print(encoded_obs.shape)
 
             if self.side == 0:
                 output_tensor = self.leftModel(encoded_obs)
