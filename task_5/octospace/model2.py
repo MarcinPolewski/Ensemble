@@ -41,7 +41,7 @@ env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000, tur
 
 # hyper params
 epsilon = 1e-2
-episodes = 1000
+episodes = 1
 lr = 1e-3
 target_update_freq = 100000
 gamma = 0.99
@@ -214,3 +214,7 @@ for episode in range(episodes):
         steps += 1
 
     print(f"Episode: {episode}, reward: {episode_reward}")
+
+# save model
+torch.save(policy_net.state_dict(), "policy_model")
+torch.save(target_net.state_dict(), "target_model")
