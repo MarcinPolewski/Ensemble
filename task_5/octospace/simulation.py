@@ -13,8 +13,8 @@ from dummy_agent import Agent
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def setup_agent(agent_class: Agent.__class__, player_id: int):
-    agent = agent_class()
+def setup_agent(agent_class: Agent.__class__, player_id: int, side: int):
+    agent = agent_class(side=side)
     agent.load(os.path.abspath(f"agents/{player_id}/"))
     agent.to(DEVICE)
     agent.eval()
@@ -34,12 +34,12 @@ def simulate_game(
     if not verbose:
         gym.logger.min_level = 40
 
-    env = gym.make('OctoSpace-v0', player_1_id=player_1_id, player_2_id=player_2_id, max_steps=1000,
+    env = gym.make('OctoSpace-v0', player_1_id=player_1_id, player_2_id=player_2_id, max_steps=2000,
                    render_mode=render_mode, turn_on_music=turn_on_music, volume=0.1)
     obs, info = env.reset()
 
-    agent_1 = setup_agent(agent_class=player_1_agent_class, player_id=player_1_id)
-    agent_2 = setup_agent(agent_class=player_2_agent_class, player_id=player_2_id)
+    agent_1 = setup_agent(agent_class=player_1_agent_class, player_id=player_1_id, side=0)
+    agent_2 = setup_agent(agent_class=player_2_agent_class, player_id=player_2_id, side=1)
 
     terminated = False
     reward = {}
@@ -49,11 +49,17 @@ def simulate_game(
 
     while curr_round / 2 != n_games:
         if terminated or sum(reward.values()) != 0:
-            curr_round += 1
             score += np.array(list(reward.values()))
             obs, info = env.reset()
-            agent_1 = setup_agent(agent_class=player_1_agent_class, player_id=player_1_id)
-            agent_2 = setup_agent(agent_class=player_2_agent_class, player_id=player_2_id)
+
+            if curr_round % 2 == 1:
+                agent_1 = setup_agent(agent_class=player_1_agent_class, player_id=player_1_id, side=((curr_round % 2) + 1))
+                agent_2 = setup_agent(agent_class=player_2_agent_class, player_id=player_2_id, side=(curr_round % 2))
+            else:
+                agent_2 = setup_agent(agent_class=player_1_agent_class, player_id=player_1_id, side=((curr_round % 2) + 1))
+                agent_1 = setup_agent(agent_class=player_2_agent_class, player_id=player_2_id, side=(curr_round % 2))
+
+            curr_round += 1
 
         env.render()
 

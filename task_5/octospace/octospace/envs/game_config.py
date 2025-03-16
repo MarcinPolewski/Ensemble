@@ -2,7 +2,7 @@ import numpy as np
 VERSION = '1.0.1'
 
 # You may change this, to adjust the window into your screen
-WINDOW_SIZE = 1024
+WINDOW_SIZE = 800
 
 
 # Gameplay settings
@@ -21,8 +21,7 @@ SHIP_OCCUPATION_RANGE = 2
 FIRING_COOLDOWN = 10
 MOVE_COOLDOWN = 3
 ASTEROID_DAMAGE = 3
-VISION_RANGE = 5
-PLANET_VISION_RANGE = 9
+VISION_RANGE = 9
 
 # Map generation settings
 BOARD_SIZE = 100
