@@ -1,4 +1,6 @@
 # Skeleton for Agent class
+import torch
+import octospace.model2 as model2
 
 class Agent:
     def get_action(self, obs: dict) -> dict:
@@ -45,10 +47,9 @@ class Agent:
         :return:
         """
 
-        return {
-            "ships_actions": [],
-            "construction": 0
-        }
+        
+        action = model2.select_best_action(obs)
+        return action
 
 
     def load(self, abs_path: str):
@@ -59,7 +60,9 @@ class Agent:
         :param abs_path:
         :return:
         """
-        pass
+
+        self.model = model2.DQN(151, 80)
+        self.model.load_state_dict(torch.load(abs_path))
 
     def eval(self):
         """
@@ -67,7 +70,7 @@ class Agent:
 
         :return:
         """
-        pass
+        self.model.eval()
 
     def to(self, device):
         """
@@ -77,4 +80,6 @@ class Agent:
         :param device:
         :return:
         """
-        pass
+
+        self.model.to(device)
+        self.device = device

@@ -124,6 +124,11 @@ def decode_action(p_action, indexes):
 
     return decoded_action
 
+def select_best_action(state):
+        allies_indexes = [state["allied_ships"][i][0] for i in range(len(state["allied_ships"]))]
+        encoded_state = torch.FloatTensor(encode_obs(state)).to(device)
+        q_values = policy_net(encoded_state)
+        return decode_action(torch.argmax(q_values.view(-1, 8), dim=1), allies_indexes)
 
 # Function to choose action using epsilon-greedy policy
 def select_action(state, epsilon):
