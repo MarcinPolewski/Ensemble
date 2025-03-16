@@ -1,5 +1,7 @@
 import torch
 import encoder
+from processing_model import CNN
+
 # Skeleton for Agent class
 
 class Agent:
@@ -8,6 +10,8 @@ class Agent:
         :param side: Indicates whether the player is on left side (0) or right side (1)
         """
         self.evaluationIsOn = False
+
+        self.model = None
         
         self.side = side
         self.device = "cpu"
@@ -15,6 +19,9 @@ class Agent:
             self.device = "cuda"
         elif torch.mps.is_available():
             self.device = "mps"
+
+        self.model = CNN()
+        self.policy_network = CNN()
 
     def get_action(self, obs: dict) -> dict:
         """
@@ -84,7 +91,14 @@ class Agent:
         :param abs_path:
         :return:
         """
-        self.model.load_state_dict(torch.load(abs_path))
+        model_name = ""
+        if(self.side == 0):
+            model_name = "model_0"
+        else:
+            model_name = "model_1"
+
+        self.model.load_state_dict(torch.load(abs_path+model_name))
+
 
     def eval(self):
         """
