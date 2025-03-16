@@ -41,7 +41,7 @@ env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000, tur
 
 # hyper params
 epsilon = 1e-2
-episodes = 1
+episodes = 1000
 lr = 1e-3
 target_update_freq = 100000
 gamma = 0.99
