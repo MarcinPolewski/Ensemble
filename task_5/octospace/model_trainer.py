@@ -11,11 +11,17 @@ class ModelTrainer:
     def __init__(self, device):
         self.env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000, turn_on_music=False, volume=0.1)
 
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.mps.is_available():
+            self.device = "mps"
+
         # hyper params
         self.psilon = 1e-2
         self.episodes = 1000
         self.lr = 1e-3
-        self.target_update_freq = 100000
+        self.target_update_freq = 10
         self.gamma = 0.99
 
         # Q-networks
@@ -29,10 +35,15 @@ class ModelTrainer:
         self.memory = []
 
         # Players
-        self.player_0 = Agent(0)
-        self.player_0.policy_network = CNN()
-        self.player_1 = Agent(1)
-        self.player_1.policy_network = CNN()
+        self.target_network_0 = CNN()
+        self.target_network_0.to(self.device)
+        self.policy_network_0 = CNN()
+        self.policy_network_0.to(self.device)
+
+        self.target_network_1 = CNN()
+        self.target_network_1.to(self.device)
+        self.policy_network_1 = CNN()
+        self.policy_network_1.to(self.device)
 
     def optimize(self):
         if len(self.memory) < self.batch_size:
@@ -113,9 +124,12 @@ class ModelTrainer:
             self.optimizer.step()
 
             print(f"Episode {episode + 1}: Total Reward = {total_reward}")
+        self.save(self.target_network_0, "model_0")
+        self.save(self.target_network_1, "model_1")
 
-    def save(self, abs_path: str):
-        torch.save(self.agent.state_dict(), abs_path)
+
+    def save(self, model, model_name):
+        torch.save(model.state_dict(), model_name)
 
     def load(self, abs_path: str):
         self.agent.load_state_dict(torch.load(abs_path))
@@ -127,19 +141,4 @@ class ModelTrainer:
         self.agent.to(device)
 
 def main():
-    # create enviroment
-    env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000,
-                render_mode="human", turn_on_music=False, volume=0.1)
-    state, _ = env.reset()
-
-    agent_1 = Agent(0)
-
-    optimizer = torch.optim.Adam(agent.parameters(), lr=0.01)
-    loss_function = torch.nn.MSELoss()
-    gamma = 0.99
-
-    trainer = ModelTrainer(agent, optimizer, loss_function, gamma)
-    trainer.to("cuda")
-
-    trainer.train(env, num_episodes=1000)
-    trainer.save("model.pth")
+    ModelTrainer().train()
