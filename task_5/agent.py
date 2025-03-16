@@ -67,15 +67,7 @@ class Agent:
         :return:
         """
 
-        ship_actions = []
-
-
-
-        for ship in obs["allied_ships"]:
-            encoded = encoder.encode(obs, ship) 
-            model_output = self.model(encoded)
-            action_for_ship = self.model.get_best_action(model_output)
-            ship_actions.append(action_for_ship)
+        ship_actions = self.model.get_action(obs)
 
         return {
             "ships_actions": ship_actions,

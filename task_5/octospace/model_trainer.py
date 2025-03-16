@@ -1,15 +1,16 @@
-from agent import Agent
 from processing_model import CNN
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from numpy import np
-import gym
+import numpy as np
+import octospace
+import pygame
+import gymnasium as gym
+
 import random
 
 class ModelTrainer:
-    def __init__(self, device):
-        self.env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000, turn_on_music=False, volume=0.1)
+    def __init__(self):
 
         self.device = "cpu"
         if torch.cuda.is_available():
@@ -26,13 +27,10 @@ class ModelTrainer:
 
         # Q-networks
         self.batch_size = 128
-        self.policy_net.to(self.device)
-        self.target_net.to(self.device)
-        self.target_net.eval()
 
-        self.optimizer = Adam(self.policy_net.parameters(), lr=self.lr)
         self.loss_f = nn.MSELoss()
-        self.memory = []
+        self.memory_0 = []
+        self.memory_1 = []
 
         # Players
         self.target_network_0 = CNN()
@@ -45,11 +43,15 @@ class ModelTrainer:
         self.policy_network_1 = CNN()
         self.policy_network_1.to(self.device)
 
-    def optimize(self):
+
+        self.optimizer_0 = Adam(self.policy_network_0.parameters(), lr=self.lr)
+        self.optimizer_1 = Adam(self.policy_network_1.parameters(), lr=self.lr)
+
+    def optimize(self, memory, optimizer):
         if len(self.memory) < self.batch_size:
             return
 
-        batch = random.sample(self.memory, self.batch_size)
+        batch = random.sample(memory, self.batch_size)
         states, actions, rewards, next_states, dones = zip(*batch)
         actions = torch.tensor(np.array(actions), dtype=torch.float32).to(self.device)
         states = torch.tensor(np.array(states), dtype=torch.float32).to(self.device)
@@ -69,61 +71,48 @@ class ModelTrainer:
         loss.backward()
         self.optimizer.step()
 
-    def train(self, env, num_episodes):
+    def train(self):
         env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000, turn_on_music=False, volume=0.1)
 
-        for episode in range(num_episodes):
+        for episode in range(200):
             state, _ = env.reset()
             done = False
 
+            episode_reward = {
+                "player_1": 0,
+                "player_2": 0
+            }
+            steps = 0
             while not done:
-                state = torch.FloatTensor(state[0])
-                action = self.agent.get_action(state)
+                #state = torch.FloatTensor(state[0])
+                action_0 = self.policy_network_0.get_action(state["player_1"])  
+                action_1 = self.policy_network_1.get_action(state["player_2"])
+
+                action = {action_0, action_1}
 
 
-                self.memory.append((state, action, reward, next_state[0], done))
-                self.optimize()
 
-                state = next_state[0]
+                next_state, reward, done, _, _ = env.step(action)
 
-                if terminated:
-                    print(f"Episode {episode} finished after {t+1} timesteps")
-                    break
+                # memory
+                self.memory_0.append((state["player_1"]), action_0, float(reward["player_0"]))
+                self.memory_1.append((state["player_1"]), action_1, float(reward["player_1"]))
 
-            if episode % 10 == 0:
-                self.target_net.load_state_dict(self.policy_net.state_dict())
-
-                next_state, reward, terminated, truncated, _ = env.step(action)
-                done = terminated or truncated
-
-         
-                total_reward += reward
+                # update state
                 state = next_state
+                episode_reward["player_1"] += reward["player_1"]
+                episode_reward["player_2"] += reward["player_2"]
 
-            # Compute returns
-            returns = []
-            R = 0
-            for r in reversed(rewards):
-                R = r + self.gamma * R
-                returns.insert(0, R)
-            returns = torch.tensor(returns)
-            returns = (returns - returns.mean()) / (returns.std() + 1e-8)  # Normalize returns
+                # optimize
+                self.optimize(self.memory_0, self.optimizer_0)
+                self.optimize(self.memory_1, self.optimizer_1)
 
-            log_probs = torch.stack(log_probs)
-            values = torch.stack(values)
+                if steps % self.target_update_freq == 0:
+                    self.target_network_0.load_state_dict(self.policy_network_0.state_dict())
+                    self.target_network_1.load_state_dict(self.policy_network_1.state_dict())
+                
+                steps += 1
 
-            advantage = returns - values.detach()
-
-            policy_loss = -(log_probs * advantage).mean()
-            value_loss = self.loss_function(values, returns)
-
-            loss = policy_loss + value_loss
-
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-
-            print(f"Episode {episode + 1}: Total Reward = {total_reward}")
         self.save(self.target_network_0, "model_0")
         self.save(self.target_network_1, "model_1")
 
@@ -141,4 +130,8 @@ class ModelTrainer:
         self.agent.to(device)
 
 def main():
-    ModelTrainer().train()
+    m = ModelTrainer()
+    m.train()
+
+if __name__ == "__main__":
+    main()
