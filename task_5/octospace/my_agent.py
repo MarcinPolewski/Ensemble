@@ -5,6 +5,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import gymnasium as gym
+from collections import namedtuple, deque
+import random
+import torch.optim as optim
+
+import octospace
+
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
@@ -40,6 +47,50 @@ def encode_observation(observation: dict) -> torch.Tensor:
     return tensor_3d
 
 
+def decode_action(action: torch.Tensor, ship_id: int) -> list:
+    probabilities = F.softmax(action, dim=0)
+    predicted_class = torch.argmax(probabilities)
+    predicted_class = predicted_class.item()
+    if predicted_class > 3:
+        return [ship_id, 1, predicted_class - 4, 3]
+    else:
+        return [ship_id, 0, predicted_class, 3]
+
+
+def random_action(ship_id: int) -> list:
+    return [ship_id, random.randint(0, 1), random.randint(0, 3), 3]
+
+
+# DQN
+
+BATCH_SIZE = 128
+GAMMA = 0.99
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 1000
+TAU = 0.005
+LR = 1e-4
+EPSILON = 0.1
+
+Transition = namedtuple('Transition',
+                        ('state', 'action', 'next_state', 'reward'))
+
+
+class ReplayMemory(object):
+
+    def __init__(self, capacity):
+        self.memory = deque([], maxlen=capacity)
+
+    def push(self, *args):
+        self.memory.append(Transition(*args))
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
+
+
 class ConvNet(nn.Module):
     def __init__(self):
         super(ConvNet, self).__init__()
@@ -62,23 +113,13 @@ class ConvNet(nn.Module):
         return x
 
 
-def decode_action(action: torch.Tensor, ship_id: int) -> list:
-    probabilities = F.softmax(action, dim=0)
-    predicted_class = torch.argmax(probabilities)
-    predicted_class = predicted_class.item()
-    if predicted_class > 3:
-        return [ship_id, 1, predicted_class - 4, 3]
-    else:
-        return [ship_id, 0, predicted_class, 3]
-
-
 class Agent:
 
     def __init__(self, side=0):
         self.device = DEVICE
         self.side = side
-        self.leftModel = ConvNet().to(DEVICE)
-        self.rightModel = ConvNet().to(DEVICE)
+        self.model = ConvNet().to(DEVICE)
+        self.eval_on = False
 
     def get_action(self, obs: dict) -> dict:
         """
@@ -133,7 +174,7 @@ class Agent:
             encoded_obs[0, y, x, 10] = 1
 
             if self.side == 0:
-                output_tensor = self.leftModel(encoded_obs)
+                output_tensor = self.model(encoded_obs)
             else:
                 output_tensor = self.rightModel(encoded_obs)
 
@@ -141,7 +182,11 @@ class Agent:
 
             # TODO: decode output from the DQN and add the correct action to the list
             action = decode_action(output_tensor, ship_id)
+
             ship_actions.append(action)
+
+            if (not self.eval_on and random.random() < EPSILON):
+                ship_actions[-1] = random_action(ship_id)
 
         return {
             "ships_actions": ship_actions,
@@ -175,5 +220,21 @@ class Agent:
         :return:
         """
         self.device = device
-        self.leftModel.to(device)
-        self.rightModel.to(device)
+        self.model.to(device)
+
+
+def learn_main():
+    env = gym.make('OctoSpace-v0', player_1_id=1, player_2_id=2, max_steps=1000)
+
+    policy_net = ConvNet().to(DEVICE)
+    target_net = ConvNet().to(DEVICE)
+    target_net.load_state_dict(policy_net.state_dict())
+
+    optimizer = optim.AdamW(policy_net.parameters(), lr=LR, amsgrad=True)
+    memory = ReplayMemory(10000)
+
+    steps_done = 0
+
+
+if __name__ == "__main__":
+    learn_main()
