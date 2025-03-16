@@ -1,6 +1,21 @@
+import torch
+import encoder
 # Skeleton for Agent class
 
 class Agent:
+    def __init__(self, side: int):
+        """
+        :param side: Indicates whether the player is on left side (0) or right side (1)
+        """
+        self.evaluationIsOn = False
+        
+        self.side = side
+        self.device = "cpu"
+        if torch.cuda.is_available():
+            self.device = "cuda"
+        elif torch.mps.is_available():
+            self.device = "mps"
+
     def get_action(self, obs: dict) -> dict:
         """
         Main function, which gets called during step() of the environment.
@@ -45,9 +60,19 @@ class Agent:
         :return:
         """
 
+        ship_actions = []
+
+
+
+        for ship in obs["allied_ships"]:
+            encoded = encoder.encode(obs, ship) 
+            model_output = self.model(encoded)
+            action_for_ship = self.model.get_best_action(model_output)
+            ship_actions.append(action_for_ship)
+
         return {
-            "ships_actions": [],
-            "construction": 0
+            "ships_actions": ship_actions,
+            "construction": 10
         }
 
 
@@ -59,7 +84,7 @@ class Agent:
         :param abs_path:
         :return:
         """
-        pass
+        self.model.load_state_dict(torch.load(abs_path))
 
     def eval(self):
         """
@@ -67,7 +92,8 @@ class Agent:
 
         :return:
         """
-        pass
+        self.evaluationIsOn = True
+        self.model.eval()
 
     def to(self, device):
         """
@@ -77,4 +103,5 @@ class Agent:
         :param device:
         :return:
         """
-        pass
+        self.device = device
+        self.model.to(device)
