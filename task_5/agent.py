@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import random
 import numpy as np
+import os
 
 # Neural network
 class DQN(nn.Module):
@@ -161,7 +162,7 @@ class Agent:
         """
 
         self.model = DQN(151, 80)
-        self.model.load_state_dict(torch.load("../target_model.pt", map_location=torch.device('cpu') if not torch.cuda.is_available() else None))
+        self.model.load_state_dict(torch.load(os.path.join(abs_path, "target_model.pt"), map_location=torch.device('cpu') if not torch.cuda.is_available() else None))
         self.eval()
 
     def eval(self):
